@@ -1,0 +1,125 @@
+{% extends "timeline-page.html" %}
+
+{% block stylesheets %}
+    <link rel="stylesheet" href="/static/css/consent.css"/>
+{% endblock %}
+
+{% block main_body %}
+<style>
+  .center {
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+    width: 50%;
+  }
+</style>
+
+<img src="/static/goldsmiths-logo.png" alt="Goldsmiths Psychology Consent Form" style="width:450px" class="center">
+<div class="main-div" style="padding-bottom: 100px; font-size: 18px;">
+  <div class="text-justify">
+    <p>
+        <h1>Participation Information Sheet and Consent Form</h1><br>
+        <b><b>Studying the psychological and cultural foundations of musical behaviour</b></b><br>
+        Principal Investigator: <i>Manuel Anglada-Tort (m.angladatort@gold.ac.uk)</i><br>
+        <i>Department of Psychology, Goldsmiths, University of London</i>
+    </p>
+    <p>
+        You are being invited to take part in a research study. Before you decide to participate in this study, it is
+        important that you understand why the research is being done and what it will involve. Please take the
+        time to read the following information carefully. Please ask the researcher if there is anything that is not
+        clear or if you need more information.<br>
+    </p>
+
+    <h2>Purpose of the research:</h2>
+    <p>
+        The purpose of this project is to study the role of experience and exposure in creating and affecting our perception, decisions and actions. Specifically, we aim to combine a wide range of behavioural methodologies to characterize the ways in which people from diverse backgrounds internalize and process external conditions, both in the auditory (e.g., speech, music) and visual (e.g., faces, color) domains. We are also interested in the way that these internal representations affect human decision making and behaviour. 
+    </p>
+
+    <h2>Study Procedures:</h2>
+    <p>
+        If you volunteer to participate in this study, you will be asked to perform simple tasks using your keyboard or mouse while listening to sounds, or while observing images or videos. For example, you may be asked to judge how pleasant a particular sound or an image is, or to categorize sounds or images (e.g., if a sound or an image is that of a car or a cow), or to judge other basic features of sounds or images (e.g., how frequently do you encounter this type of sound or image? how aesthetically pleasing you consider a particular sound or image?). The specific sounds, images, and videos used will vary, but may include: recordings of ambient sounds, noise-bursts, speech, music, simple tones, naturalistic images, animated images, comics, faces, objects, geometric shapes, fractal images, or videos of natural environments. If the experiment contains other elements not mentioned here (e.g., audio recordings or open-science practices), we will ask for an additional consent following this one.
+    </p>
+
+    <p>
+        The experiment will take you approximately <span style="font-weight: bold; white-space: nowrap;">
+        {{ experiment.estimated_duration_in_minutes|round|int }} minutes</span>.
+    </p>
+
+    <h2>Do I have to take part?</h2>
+
+    <p>
+        Your participation in this research is voluntary. You are free to refuse to take part, and you may stop taking part at any time. You are free to discontinue participation in this study at any time without penalty. 
+    </p>
+
+    <h2>How will my data be used?</h2>
+
+    <p>
+        We will not collect any data that could directly identify you (e.g., your name or contact data). We may collect some demographic data (e.g. age, gender, country of residence) as well as information about your learning and exposure history (e.g. musical experience playing an instrument, years of formal education, languages spoken). Your IP address will not be stored. We will take all reasonable measures to ensure that data remain confidential.
+        <br><br>
+        The responses you provide will be stored in a password-protected electronic file on the University secure servers and may be used in academic publications, conference presentations, and reports for external organizations or websites. Research data will be stored for at least 5 years after publication or public release of the work of the research.
+        <br><br>
+        For the purpose of helping scientific progress and replication, sometimes we may share the data with research collaborators. In these cases, we will only share data which does not identify you, such as demographic, aggregated, or extracted data without any personal identifiers.
+    </p>
+
+    <h2>Benefits and Risks:</h2>
+
+    <p>
+        Although it may not directly benefit you, this study may benefit society by helping us understanding how humans derive information from sound and vision, and potentially to help engineer machines that can replicate our abilities (e.g. in sound recognition and computer vision) and to help improve perceptual abilities in people whose hearing or sight is impaired.
+        <br><br>
+        There are no risks for participating in this study beyond those associated with normal computer use.
+    </p>
+
+    <h2>Security:</h2>
+    <p>
+        Data will be stored temporarily on external servers and desktops/laptops that are password protected. The data will be then stored permanently in the University servers with hard disks encrypted using industry-standard encryption software. No data will be stored permanently on external servers. Theft of an individual laptop/desktop or stolen hard drive will yield no usable personal identifiers. 
+    </p>
+
+    <h2>Compensation:</h2>
+    <p>
+        We estimate that the experiment will take you approximately <span style="font-weight: bold; white-space: nowrap;">{{ experiment.estimated_duration_in_minutes|round|int }} minutes</span>. 
+        <!-- Upon completion of the full task, you should receive a bonus of approximately <span style="font-weight: bold; white-space: nowrap;">{{config.currency}}{{ "{:.2f}".format(experiment.estimated_reward_in_dollars) }} 
+        in total</span>. 
+        <br><br> -->
+        Some experiments may require that you meet certain technical requirements (e.g., using headphones) and/ or certain performance requirements (e.g., speaking fluent English or singing melodies accurately). 
+        In these experiments, we may test whether you meet these requirements using some experiemtnal tasks at the beginning of the experiment (e.g., a short vocabulary or singing test). In cases where the requirements are 
+        not met, the experiment may finish early: this is not an error, and there is no need to write to us. In this case, you will be paid in proportion to the amount of the experiment that you completed.
+    </p>
+
+    <h2>Who do I contact if I have concerns or I wish to complain?</h2>
+    <p>
+        If you have a concern about any aspect of this research, please speak to Dr Manuel Anglada-Tort at m.angladatort@gold.ac.uk, and we will do our best to answer your query. We will acknowledge your concern within 10 working days and give you an indication of how it will be dealt with.<br>
+        If you remain unhappy or wish to make a formal complaint, please contact the Chair of the Research Ethics Committee in the Department of Psychology at Goldsmiths, University of London, who will seek to resolve the matter as soon as possible: Dr Maria Herrojo-Ruiz at m.herrojo-ruiz@gold.ac.uk.
+    </p>
+
+    <h2>Consent Form:</h2>
+    <p>
+        Before we begin, we ask you to carefully read and complete the consent form below. If you don’t wish to participate, please close this window. 
+        <b>I understand the information that was presented and that:</b>
+        <ol>
+            <li>
+                I have read the Resaerch Participation Informatio provided above.
+            </li>
+            <li>
+                I will not be reffered to by name in any report concerning the study.
+            </li>  
+            <li>
+                My participation is voluntary, and I am free to stop taking part in the study at any time, without having to give a reason for withdrawing, and without any negative consequences.
+            </li>
+            <li>
+                I am at least 18 years old.
+            </li>
+        </ol>
+    </p>
+
+    <p>
+        I hereby give my consent to be the subject of your research.
+    </p>
+    <p>
+        <span style="font-weight: bold">
+            This study has been approved by the Research Ethics Committee at Goldsmiths, University of London
+        </span>
+    </p>
+    {{ consent.buttons(config) }}
+  </div>
+</div>
+{% endblock %}

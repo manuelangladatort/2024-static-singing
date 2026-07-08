@@ -8,9 +8,7 @@ def welcome():
             """
             <h3>Welcome</h3>
             <hr>
-            In this experiment, you will hear melodies and be asked to sing them back as accurately as possible.
-            <br><br>
-            We will monitor your responses throughout the experiment.
+            In this experiment, you will hear melodies and asked to sing them back as accurately as possible.
             <br><br>
             Press <b><b>next</b></b> when you are ready to start.
             <hr>
@@ -26,9 +24,9 @@ def requirements_mic():
             """
             <h3>Technical requirements</h3>
             <hr>
-            <b><b>We need you to use a working microphone, either from your headphones or computer</b></b>. 
+            <b><b>You will need to use a working microphone, either from your headphones or computer</b></b>. 
             <br><br>
-            If you are not able to satisfy these requirements currently, please return the study.
+            If you are not able to satisfy these requirements currently, please return the study now and come back later.
             <hr>
             """
         ),

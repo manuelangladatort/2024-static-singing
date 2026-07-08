@@ -1,0 +1,40 @@
+{% extends "timeline-page.html" %}
+
+{% block stylesheets %}
+    <link rel="stylesheet" href="/static/css/consent.css"/>
+{% endblock %}
+
+{% block main_body %}
+    <div class="main-div" style="padding-bottom: 200px;">
+        <hr>
+        <p>
+        <h4 style="color: red; font-weight: bold;">
+            {{ pgettext("consent-title", "In this experiment, you may be asked to make audio recordings.") }}
+            {{ pgettext("consent-title", "For example, you may be asked to record your finger-tapping in response to a sound, or to record yourself speaking or singing.") }}
+        </h4>
+        </p>
+        <h2>Confidentiality:</h2>
+        <p>
+            All the recordings we obtain during this research will be kept confidential, and nobody outside the group of researchers will be able to share or store them. However, in some experiments, your recordings may be heard by other participants in order to evaluate them in different attributes or create new materials (for example replicate a rhythm that you created or continue a melody that you sang). Your recordings will not be associated with your name or other identifiers in any way. Your recordings will not be used to derive your real identity, and they will not be made public. Raw recordings will not be shared with collaborators (we will only share extracted data from recordings without personal identifiers).
+            <br><br>
+            Although researchers will not use your recordings to derive your real identity, personal information could be leaked if you are not in an isolated environment. You may wish to make sure that no sounds material in your environment could be linked to your personal information. In addition, while you perform a recording, the microphone can capture unintended audio, for example the microphone can capture something you say to another person. If you choose to participate in the experiment, it is important and your responsibility to make sure that while you record audio nothing that you don’t intend to be recorded is recorded. For example, you may want to sit in a room that is isolated from the rest of the house. By consenting to this experiment, you are committing not to use profanity while recording audio or nudity while recording video. 
+        </p>
+
+        <h2>Security:</h2>
+        <p>
+        During data collection, audio-visual material will be recorded on a separate server. Audio-visual material will not be indexed by personal information but will be linked to personal information by a key (such as “afasd12314asdasd”). Personal information will be stored separately from audio-visual materials and encrypted using a strong encryption protocol (such as Advanced Encryption Standard). 
+        </p>
+
+        <h2>Contact information:</h2>
+        <p>
+        If you have any questions about this research, do not hesitate to contact the main researcher in this project, Dr Manuel Anglada-Tort at: m.angladatort@gold.ac.uk.
+        </p>
+        <div class="text-justify">
+            <div class="text-left" style="font-size: 18px;">
+                {{ consent.consent(config) }}
+            </div>
+            {{ consent.fixed_buttons(config) }}
+        </div>
+
+    </div>
+{% endblock %}

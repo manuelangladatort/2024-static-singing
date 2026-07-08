@@ -9,7 +9,13 @@ from urllib.parse import quote
 import psynet.experiment
 from psynet.asset import ExperimentAsset, Asset, LocalStorage, DebugStorage, FastFunctionAsset, S3Storage  # noqa
 from psynet.consent import NoConsent, MainConsent, OpenScienceConsent, AudiovisualConsent
-from psynet.modular_page import ModularPage, AudioRecordControl, AudioPrompt
+from psynet.modular_page import (
+    ModularPage,
+    AudioRecordControl,
+    AudioPrompt,
+    PushButtonControl,
+    RadioButtonControl,
+)
 from psynet.js_synth import JSSynth, Note, HarmonicTimbre, InstrumentTimbre
 
 from psynet.page import InfoPage, SuccessfulEndPage, join
@@ -49,15 +55,16 @@ def get_prolific_settings():
     with open("qualification_prolific_en.json", "r") as f:
         qualification = json.dumps(json.load(f))
     return {
-        "recruiter": RECRUITER,
-        # "id": "singing-nets",
-        "prolific_estimated_completion_minutes": 11,
-        "prolific_maximum_allowed_minutes": 30,
+        "recruiter": RECRUITER, 
+        "prolific_estimated_completion_minutes": TOTAL_ESTIMATE_TIME_MIN,
         "prolific_recruitment_config": qualification,
-        "base_payment": 2.0,
-        "auto_recruit": False,
+        "base_payment": PAYMENT,
+        "auto_recruit": True,
         "currency": "£",
-        "wage_per_hour": 0.0
+        "wage_per_hour": 10,
+        "prolific_is_custom_screening": False, # workaround to avoid the default screening question for psynet v11.9
+        "prolific_workspace": "Goldsmiths",  
+        "prolific_project": "Pilot",  
     }
 
 
@@ -65,16 +72,23 @@ def get_prolific_settings():
 # Global
 ########################################################################################################################
 
-DEBUG = True
+DEBUG = False
 RECRUITER = "prolific" # "prolific" vs "hotair
 
-INITIAL_RECRUIT_SIZE = 5
-IS_PIANO = False # decide if we use piano timbre or not
-INITIAL_RECRUITMENT_SIZE = 5 # decide how many participants we recruit initially
-NUM_PARTICIPANTS = 50 # decide how many participants we recruit in total
+TOTAL_ESTIMATE_TIME_MIN = 15
+PAYMENT = 2.5
 
-TRIALS_PER_PARTICIPANT = 20
+INITIAL_RECRUITMENT_SIZE = 10
+NUM_PARTICIPANTS = 70 # decide how many participants we recruit in total
+IS_PIANO = False # decide if we use piano timbre or not
+
+TRIALS_PER_PARTICIPANT = 30
 TRIALS_PER_PARTICIPANT_PRACTICE = 2
+
+# time estiamtes trials
+TIME_ESTIMATE_LISTENING_TRIAL = 5
+TIME_ESTIMATE_SINGING_TRIAL = 10 
+TIME_ESTIMATE_TRIAL = TIME_ESTIMATE_LISTENING_TRIAL + TIME_ESTIMATE_SINGING_TRIAL
 
 
 # audio prompt mode
@@ -154,12 +168,6 @@ def compile_nodes_from_wav_directory(
             )
         )
     return nodes_out
-
-# time estiamtes trials
-TIME_ESTIMATE_LISTENING_TRIAL = 7
-TIME_ESTIMATE_SINGING_TRIAL = 15 
-TIME_ESTIMATE_TRIAL = TIME_ESTIMATE_LISTENING_TRIAL + TIME_ESTIMATE_SINGING_TRIAL
-
 
 
 # singing
@@ -318,52 +326,41 @@ nodes_practice = [
 def create_listen_trial(show_current_trial, time_estimate, target_pitches, melody_duration, melody_id: str):
     html = Markup(
         f"""
-        <h3>Listen to the melody</h3>
-        <hr>
-        Press <b><b>Next</b></b> when you are ready to start singing the melody.<br>
-        <hr>
-        {show_current_trial}<br><br>
+        <h3>How easy do you think it would be to sing this melody?</h3>
+        <br><br>
+        {show_current_trial}
         """
     )
 
-    if AUDIO_PROMPT_MODE == "wavs":
-        wav_path = pick_sonic_logo_wav(melody_id)
-        if wav_path:
-            # `AudioPrompt` can take a local path or an asset; here we use a local path.
-            # Make sure the folder is available at runtime/deployment.
-            prompt = AudioPrompt(wav_path, html)
-        else:
-            prompt = JSSynth(
-                html,
-                [Note(pitch) for pitch in target_pitches],
-                timbre=TIMBRE,
-                default_duration=note_duration_tonejs,
-                default_silence=note_silence_tonejs,
-            )
-    else:
-        prompt = JSSynth(
-            html,
-            [Note(pitch) for pitch in target_pitches],
-            timbre=TIMBRE,
-            default_duration=note_duration_tonejs,
-            default_silence=note_silence_tonejs,
-        )
+    prompt = JSSynth(
+        html,
+        [Note(pitch) for pitch in target_pitches],
+        timbre=TIMBRE,
+        default_duration=note_duration_tonejs,
+        default_silence=note_silence_tonejs,
+    )
 
     listen_page = ModularPage(
         "listen_page",
         prompt,
-        events={
-            "promptStart": Event(is_triggered_by="trialStart", delay=1.5),
-            "responseEnable": Event(is_triggered_by="promptEnd", delay=1),
-            "submitEnable": Event(is_triggered_by="promptEnd", delay=1),
-        },
-        progress_display=ProgressDisplay(
-            stages=[
-                ProgressStage(1, "Wait a moment...", "orange"),
-                ProgressStage(melody_duration, "Listen to the melody", "red"),
-                ProgressStage(0.5, "Done!", "green", persistent=True),
+        PushButtonControl(
+            choices=[1, 2, 3, 4, 5, 6, 7],
+            labels=[
+                "(1) Very difficult",
+                "(2)",
+                "(3)",
+                "(4)",
+                "(5)",
+                "(6)",
+                "(7) Very easy",
             ],
+            arrange_vertically=True,
         ),
+        events={
+            "responseEnable": Event(is_triggered_by="promptEnd"),
+            "submitEnable": Event(is_triggered_by="promptEnd"),
+        },
+        save_answer="singing_difficulty_rating",
         time_estimate=time_estimate,
     )
 
@@ -373,29 +370,33 @@ def create_listen_trial(show_current_trial, time_estimate, target_pitches, melod
 def create_listen_trial_wav(show_current_trial, time_estimate, url_audio: str, prompt_duration: float):
     html = Markup(
         f"""
-        <h3>Listen to the sound</h3>
-        <hr>
-        Press <b><b>Next</b></b> when you are ready to start singing it.<br>
-        <hr>
-        {show_current_trial}<br><br>
+        <h3>How easy do you think it would be to sing this melody?</h3>
+        <br><br>
+        {show_current_trial}
         """
     )
 
     listen_page = ModularPage(
         "listen_page",
         AudioPrompt(url_audio, html),
-        events={
-            "promptStart": Event(is_triggered_by="trialStart", delay=0.5),
-            "responseEnable": Event(is_triggered_by="promptEnd", delay=0.5),
-            "submitEnable": Event(is_triggered_by="promptEnd", delay=0.5),
-        },
-        progress_display=ProgressDisplay(
-            stages=[
-                ProgressStage(0.5, "Wait a moment...", "orange"),
-                ProgressStage(prompt_duration, "Listen", "red"),
-                ProgressStage(0.5, "Done!", "green", persistent=True),
+        PushButtonControl(
+            choices=[1, 2, 3, 4, 5, 6, 7],
+            labels=[
+                "(1) Very difficult",
+                "(2)",
+                "(3)",
+                "(4)",
+                "(5)",
+                "(6)",
+                "(7) Very easy",
             ],
+            arrange_vertically=True,
         ),
+        events={
+            "responseEnable": Event(is_triggered_by="promptEnd"),
+            "submitEnable": Event(is_triggered_by="promptEnd"),
+        },
+        save_answer="singing_difficulty_rating",
         time_estimate=time_estimate,
     )
 
@@ -406,33 +407,22 @@ def create_singing_trial(show_current_trial, target_pitches, time_estimate, melo
     html = Markup(
         f"""
         <h3>Sing back the melody</h3>
-        <hr>
-        Sing each note clearly using the syllable '{SYLLABLE}' and leave silent gaps between notes.<br><br>
-        <hr>
+        <ul>
+          <li>Don’t worry if the melody is too difficult — just try your best.</li>
+          <li>Sing each note clearly using the syllable '{SYLLABLE}'.</li>
+        </ul>
+        <br><br>
         {show_current_trial}<br><br>
         """
     )
 
-    if AUDIO_PROMPT_MODE == "wavs":
-        wav_path = pick_sonic_logo_wav(melody_id)
-        if wav_path:
-            prompt = AudioPrompt(wav_path, html)
-        else:
-            prompt = JSSynth(
-                html,
-                [Note(pitch) for pitch in target_pitches],
-                timbre=TIMBRE,
-                default_duration=note_duration_tonejs,
-                default_silence=note_silence_tonejs,
-            )
-    else:
-        prompt = JSSynth(
-            html,
-            [Note(pitch) for pitch in target_pitches],
-            timbre=TIMBRE,
-            default_duration=note_duration_tonejs,
-            default_silence=note_silence_tonejs,
-        )
+    prompt = JSSynth(
+        html,
+        [Note(pitch) for pitch in target_pitches],
+        timbre=TIMBRE,
+        default_duration=note_duration_tonejs,
+        default_silence=note_silence_tonejs,
+    )
 
     singing_page = ModularPage(
         "singing_page",
@@ -451,23 +441,25 @@ def create_singing_trial(show_current_trial, target_pitches, time_estimate, melo
         progress_display=ProgressDisplay(
             stages=[
                 ProgressStage(melody_duration, "Listen to the melody...", "orange"),
-                ProgressStage(singing_duration, "Recording...SING THE MELODY!", "red"),
+                ProgressStage((singing_duration+1), "Recording...sing back the melody!", "red"),
                 ProgressStage(0.5, "Done!", "green", persistent=True),
             ],
         ),
         time_estimate=time_estimate,
     )
-    
+
     return singing_page
 
 
 def create_singing_trial_wav(show_current_trial, time_estimate, url_audio: str, prompt_duration: float, singing_duration: float):
     html = Markup(
         f"""
-        <h3>Sing back the sound</h3>
-        <hr>
-        Sing it back using the syllable '{SYLLABLE}'.<br><br>
-        <hr>
+        <h3>Sing back the melody</h3>
+        <ul>
+          <li>Don’t worry if the melody is too difficult — just try your best.</li>
+          <li>Sing each note clearly using the syllable '{SYLLABLE}'.</li>
+        </ul>
+        <br><br>
         {show_current_trial}<br><br>
         """
     )
@@ -488,8 +480,8 @@ def create_singing_trial_wav(show_current_trial, time_estimate, url_audio: str, 
         },
         progress_display=ProgressDisplay(
             stages=[
-                ProgressStage(prompt_duration, "Listen...", "orange"),
-                ProgressStage(singing_duration, "Recording...SING!", "red"),
+                ProgressStage(prompt_duration, "Listen to the melody...", "orange"),
+                ProgressStage((singing_duration+1), "Recording...sing back the melody!", "red"),
                 ProgressStage(0.5, "Done!", "green", persistent=True),
             ],
         ),
@@ -536,7 +528,16 @@ class SingingTrial(AudioRecordTrial, StaticTrial):
                 wav_def["url_audio"],
                 prompt_duration,
             )
-
+            ingo_page = InfoPage(
+                Markup(
+                    """
+                    <h3>Ready to sing?</h3>
+                    Click <b><b>Next</b></b> when you are ready to listen to the melody again and sing it back.
+                    <br><br>
+                    """
+                ),
+                time_estimate=2,
+            )
             singing_page = create_singing_trial_wav(
                 show_current_trial,
                 TIME_ESTIMATE_SINGING_TRIAL,
@@ -562,6 +563,8 @@ class SingingTrial(AudioRecordTrial, StaticTrial):
                 melody["melody"]["melody_id"],
             )
         
+        if is_wav_trial:
+            return [listening_page, ingo_page, singing_page]
         return [listening_page, singing_page]
 
     def analyze_recording(self, audio_file: str, output_plot: str):
@@ -771,7 +774,7 @@ practice_singing = join(
 
 
 main_singing = join(
-    InfoPage("We can now start with the main singing task. Please pay attention to the instructions.", time_estimate=2),
+    InfoPage("You can now start with the main singing task.", time_estimate=2),
     InfoPage(
         Markup(
             f"""
@@ -779,9 +782,11 @@ main_singing = join(
             <hr>
             You will listen to a total of {(TRIALS_PER_PARTICIPANT)} musical melodies. 
             <br><br>
-            In each trial, you will first listen to a melody and then sing it back as accurately as possible.
+            In each trial, you will first listen to a melody and answer how easy it would be to sing it.
             <br><br>
-            Please sing each note clearly to the syllable 'TA' and leave silent gaps between notes.
+            You will then listen to the same melody again and sing it back.
+            <br><br>
+            Do not worry if the melody is difficult to sing. Just try your best to sing the melody as accurately as possible using the syllable 'TA'.
             <hr>
             """
         ),
@@ -815,10 +820,14 @@ class Exp(psynet.experiment.Experiment):
     config = {
         **get_prolific_settings(),
         "initial_recruitment_size": INITIAL_RECRUITMENT_SIZE,
-        "title": "Singing experiment (Chrome browser, ~11 mins)",
-        "description": "This is a singing experiment. You will listen to melodies and sing them back as accurately as possible.",
-        "contact_email_on_error": "computational.audition+online_running_manu@gmail.com",
-        "organization_name": "Max Planck Institute for Empirical Aesthetics",
+        "title": f"Listen to melodies and sing them back! (Headphones required, {TOTAL_ESTIMATE_TIME_MIN} min, £{PAYMENT})",
+        "description": Markup("""
+            <p>{"You will listen to short melodies and sing them back as accurately as possible (Headphone required, Chrome browser required).".format(
+            )}</p>
+            <p>{"If you have any questions or concerns, please contact us through Prolific."}</p>
+            """),
+        "contact_email_on_error": "m.angladatort@gold.ac.uk",
+        "organization_name": "Goldsmiths, University of London",
         "show_reward": False
     }
 
@@ -826,8 +835,6 @@ class Exp(psynet.experiment.Experiment):
         timeline = Timeline(
             NoConsent(),
             CodeBlock(lambda participant: participant.var.set("register", "low")),  # set singing register to low
-            welcome(),
-            practice_singing,
             main_singing,
         )
 
@@ -842,8 +849,20 @@ class Exp(psynet.experiment.Experiment):
             mic_test(),
 
             singing_performance(),  # here we 1) screen bad participants and 2) select singing register (8 trials)
+            conditional( 
+                label="assign_register",
+                condition=lambda experiment, participant: participant.var.predicted_register == "undefined",
+                logic_if_true=CodeBlock(
+                    lambda experiment, participant: participant.var.set(
+                        "register", random.choice(["low", "high"]))
+                ),
+                logic_if_false=CodeBlock(lambda experiment, participant: participant.var.set(
+                    "register", participant.var.predicted_register)
+                                            ),
+                fix_time_credit=False
+            ),
 
-            practice_singing,
+            # practice_singing, # not implemented 
             main_singing,
             questionnaire(),
         )

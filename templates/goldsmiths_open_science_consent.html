@@ -1,0 +1,41 @@
+{% extends "timeline-page.html" %}
+
+{% block stylesheets %}
+    <link rel="stylesheet" href="/static/css/consent.css"/>
+{% endblock %}
+
+{% block main_body %}
+  <div class="main-div" style="padding-bottom: 200px;">
+    <h2>{{ pgettext("consent-title", "Open Science: We need your consent to proceed") }}</h2>
+    <hr>
+    <p>
+        {{ pgettext("consent", "Following open science practices to improve science reusability and replicability, we may want to publish the dataset collected in this experiment as soon as the study is finished. This includes audio recordings, such as a recording of your finger-tapping in response to a sound or video, or to record yourself speaking or singing. We may also want to publish certain materials as part of the scientific publication, such as a demo recordings of the task or part of an interview.") }}
+    </p>
+
+    <h4>Contact information</h4>
+    <p>
+    If you have any questions about this research, do not hesitate to contact the main researcher in this project, Dr Manuel Anglada-Tort at: m.angladatort@gold.ac.uk.
+    </p>
+    
+    <div class="text-justify">
+        <div class="text-left" style="font-size:18px">
+            <h4>{{ pgettext("consent-confidentiality", "Confidentiality") }}</h4>
+            <p class="consent-text">
+                {{ pgettext("consent-confidentiality", "Since the audio recordings collected in this experiment may be made public, we cannot guarantee anonymity of your data if you participate in this experiment. However, your data will not be associated with your name or other identifiers in any way.") }}
+            </p>
+
+            <h4>{{ pgettext("consent-security", "Security") }}</h4>
+            <p class="consent-text">
+                {{ pgettext("consent-security", "Data will be published on open science frameworks/websites such as OSF (https://osf.io/) and will be available to everybody with internet access.") }}
+
+            <h4>{{ pgettext("consent-disclaimer", "Disclaimer") }}</h4>
+            <p class="consent-text">
+                {{ pgettext("consent-disclaimer", "Since some materials will be published as part of the scientific publication, you will not be able to delete such materials, as they will become public (either immediately or soon after data collection). Thus, you may wish to make sure you do not record any materials you do not want to make public. By consenting to this experiment, you are committing not to use profanity while recording audio or nudity while recording video.  Although your data will not be associated with personal identifiers, it is possible to link your personal information based on audio-visual recordings.") }}.
+            </p>
+
+            {{ consent.consent(config) }}
+        </div>
+        {{ consent.fixed_buttons(config) }}
+      </div>
+  </div>
+{% endblock %}

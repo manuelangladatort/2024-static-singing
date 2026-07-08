@@ -28,7 +28,7 @@ def questionnaire():
         BasicMusic(),
         GMSI(subscales=["Musical Training", "Singing Abilities"]),
         feedback(),
-        debrief()
+        debrief2()
     )
 
 
@@ -179,7 +179,7 @@ def feedback():
     )
 
 
-def debrief():
+def debrief1():
     html = tags.div()
 
     with html:
@@ -195,6 +195,27 @@ def debrief():
             The data collected during this experiment will help to better understand how people perceive and memorize 
             melodies from different musical cultures (e.g., Western vs. Non-Western) and study the role of listeners' individual 
             differences at a large scale (testing many melodies and participants from different backgrounds).
+            """
+        )
+
+    return InfoPage(html, time_estimate=10)
+
+def debrief2():
+    html = tags.div()
+
+    with html:
+        tags.p(
+            """
+            Thank you for participating in this experiment. In this study, you listened to short melodies known as
+            <em>sonic logos</em> (also called <em>audio logos</em>)—brief, brand-linked musical signatures used in advertising and
+            media (for example, a short tune that identifies a company).
+            """
+        )
+        tags.p(
+            """
+            We are interested in whether how accurately people can sing a sonic logo predicts how effective it is as a logo.
+            By combining your singing responses with ratings and preference measures, we can test which sonic logos are easier to
+            learn and reproduce, and whether this relates to how distinctive and memorable they are across listeners.
             """
         )
 

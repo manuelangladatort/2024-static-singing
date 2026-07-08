@@ -585,6 +585,7 @@ class SingingPerformanceTestTrialMaker(StaticTrialMaker):
                 f"""
                 <h4>Congratulations, you passed the singing test.</h4>
                 Your performance score was <strong>{score_to_display}&#37;</strong>.
+                <br><br>
                 """
             ),
             time_estimate=3,
@@ -596,14 +597,15 @@ def singing_performance():
         InfoPage(
             Markup(
                 f"""
-                <h3>Singing Feedback</h3>
+                <h3>Singing Practice</h3>
                 <hr>
                 <b><b>You will hear a melody with 2 notes and your goal is to sing each note back as 
                 accurately as possible.</b></b><br>
-                <i>Note:</i> Use the syllable 'TA' to sing each note and leave a silent gap between notes. <br><br>
+                Use the syllable 'TA' to sing each note and leave a silent gap between notes. <br><br>
                 We will provide feedback after each trial.
-                <hr>
+                <br><br>
                 When ready, click <b><b>next</b></b> to start singing.
+                <br><br>
                 """
             ),
             time_estimate=5,
@@ -628,8 +630,9 @@ def singing_performance():
                 Like before, your goal is to listen to each melody and sing it back to the syllable 'TA'.
                 <br><br>
                 <b><b>If you do not pass the test, the experiment will terminate.</b></b> 
-                <hr>
+                <br><br>
                 When ready, click <b><b>next</b></b> to start singing.
+                <br><br>
                 """
             ),
             time_estimate=5,

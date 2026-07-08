@@ -27,4 +27,10 @@ __pycache__
 develop/
 deploy/
 deploy_logs/
+
+source_code.zip
+.Rproj.user
+
 data/
+analysis/
+2025-sonic-logos/

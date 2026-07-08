@@ -1,7 +1,7 @@
 import random
 from dominate import tags
 
-from psynet.demography.general import BasicDemography, Language
+from psynet.demography.general import BasicDemography, BasicMusic
 from psynet.demography.gmsi import GMSI
 from psynet.modular_page import ModularPage, TextControl, SurveyJSControl
 from psynet.page import InfoPage
@@ -25,7 +25,7 @@ def questionnaire():
     return join(
         introduction(),
         BasicDemography(),
-        # Language(),
+        BasicMusic(),
         GMSI(subscales=["Musical Training", "Singing Abilities"]),
         feedback(),
         debrief()

@@ -1,11 +1,15 @@
 from markupsafe import Markup
 import random
 import json
+import os
+import hashlib
+import wave
+from urllib.parse import quote
 
 import psynet.experiment
 from psynet.asset import ExperimentAsset, Asset, LocalStorage, DebugStorage, FastFunctionAsset, S3Storage  # noqa
 from psynet.consent import NoConsent, MainConsent, OpenScienceConsent, AudiovisualConsent
-from psynet.modular_page import ModularPage, AudioRecordControl
+from psynet.modular_page import ModularPage, AudioRecordControl, AudioPrompt
 from psynet.js_synth import JSSynth, Note, HarmonicTimbre, InstrumentTimbre
 
 from psynet.page import InfoPage, SuccessfulEndPage, join
@@ -13,6 +17,7 @@ from psynet.timeline import Event, ProgressDisplay, ProgressStage, Timeline, Cod
 from psynet.trial.static import StaticNode, StaticTrial, StaticTrialMaker
 from psynet.trial.audio import AudioRecordTrial
 from psynet.prescreen import AntiphaseHeadphoneTest
+from .goldsmiths_consent import GoldsmithsConsent, GoldsmithsAudioConsent, GoldsmithsOpenScienceConsent
 
 import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -60,17 +65,95 @@ def get_prolific_settings():
 # Global
 ########################################################################################################################
 
-# TODO: block randomization of melodies per set
-# TODO: repeat each singing trial 2 times
-
-
-DEBUG = False
+DEBUG = True
 RECRUITER = "prolific" # "prolific" vs "hotair
 
 INITIAL_RECRUIT_SIZE = 5
 IS_PIANO = False # decide if we use piano timbre or not
 INITIAL_RECRUITMENT_SIZE = 5 # decide how many participants we recruit initially
 NUM_PARTICIPANTS = 50 # decide how many participants we recruit in total
+
+TRIALS_PER_PARTICIPANT = 20
+TRIALS_PER_PARTICIPANT_PRACTICE = 2
+
+
+# audio prompt mode
+# - "synth": play the melody using Tone.js (`JSSynth`)
+# - "wavs": play a pre-rendered `.wav` from trial nodes
+AUDIO_PROMPT_MODE = "wavs"  # "synth" | "wavs"
+SONIC_LOGOS_STATIC_WAV_DIR = os.path.join("static", "audio", "sonic-logos")
+SONIC_LOGOS_STATIC_WAV_URL_PREFIX = "/static/audio/sonic-logos"
+
+
+def _list_sonic_logo_wavs():
+    if not os.path.isdir(SONIC_LOGOS_STATIC_WAV_DIR):
+        return []
+    wavs = [
+        os.path.join(SONIC_LOGOS_STATIC_WAV_DIR, f)
+        for f in os.listdir(SONIC_LOGOS_STATIC_WAV_DIR)
+        if f.lower().endswith(".wav")
+    ]
+    wavs.sort()
+    return wavs
+
+
+SONIC_LOGO_WAV_PATHS = _list_sonic_logo_wavs()
+
+
+def pick_sonic_logo_wav(melody_id: str) -> str | None:
+    """
+    Deterministically selects a `.wav` file from `SONIC_LOGOS_STATIC_WAV_DIR` based on `melody_id`.
+    Returns a local path (or `None` if no wavs are available).
+    """
+    if not SONIC_LOGO_WAV_PATHS:
+        return None
+    digest = hashlib.md5(melody_id.encode("utf-8")).hexdigest()
+    idx = int(digest[:8], 16) % len(SONIC_LOGO_WAV_PATHS)
+    return SONIC_LOGO_WAV_PATHS[idx]
+
+
+def _wav_duration_seconds(path: str) -> float:
+    with wave.open(path, "rb") as wf:
+        frames = wf.getnframes()
+        rate = wf.getframerate()
+    return frames / float(rate)
+
+
+def compile_nodes_from_wav_directory(
+    wav_dir: str,
+    url_prefix: str,
+    *,
+    limit: int | None = None,
+):
+    """
+    Creates `StaticNode`s directly from a directory of `.wav` files.
+    Each node definition contains:
+    - `stim_id`: filename without extension
+    - `url_audio`: URL served from `static/`
+    - `duration_sec`: duration of the wav (for progress timing)
+    """
+    if not os.path.isdir(wav_dir):
+        return []
+
+    wav_files = [f for f in os.listdir(wav_dir) if f.lower().endswith(".wav")]
+    wav_files.sort()
+    if limit is not None:
+        wav_files = wav_files[:limit]
+
+    nodes_out = []
+    for filename in wav_files:
+        local_path = os.path.join(wav_dir, filename)
+        stim_id = os.path.splitext(filename)[0]
+        nodes_out.append(
+            StaticNode(
+                definition={
+                    "stim_id": stim_id,
+                    "url_audio": f"{url_prefix}/{quote(filename)}",
+                    "duration_sec": _wav_duration_seconds(local_path),
+                }
+            )
+        )
+    return nodes_out
 
 # time estiamtes trials
 TIME_ESTIMATE_LISTENING_TRIAL = 7
@@ -188,32 +271,36 @@ def generate_random_melody(mel_id, roving_mean, roving_width, max_interval2refer
 # ]
 
 
-# we generate the stimulus (and nodes) by importing the melodies from a json file
-path_json = "melodies.json"
-
-with open(path_json, 'r') as file:
-    melodies_data = json.load(file)
-
-melodies_list = melodies_data['melodies']
-    
-nodes = [
-    StaticNode(
-        definition={
-            "melody": {
-                "set_id": melody["set"],
-                "melody_id": melody["melody"],
-                "target_pitches": melody["target_pitches"],
-            }
-        },
+# We generate trial nodes either from a JSON melody list ("synth") or from a directory of `.wav`s ("wavs").
+if AUDIO_PROMPT_MODE == "wavs":
+    nodes = compile_nodes_from_wav_directory(
+        SONIC_LOGOS_STATIC_WAV_DIR,
+        SONIC_LOGOS_STATIC_WAV_URL_PREFIX,
     )
-    for melody in melodies_list
-]
+else:
+    # we generate the stimulus (and nodes) by importing the melodies from a json file
+    path_json = "melodies.json"
 
-NUM_MELODIES = len(nodes)
-TRIALS_PER_PARTICIPANT = NUM_MELODIES
-TRIALS_PER_PARTICIPANT_PRACTICE = 2
+    with open(path_json, 'r') as file:
+        melodies_data = json.load(file)
 
-# generate random melodies for the practice phase
+    melodies_list = melodies_data['melodies']
+        
+    nodes = [
+        StaticNode(
+            definition={
+                "melody": {
+                    "set_id": melody["set"],
+                    "melody_id": melody["melody"],
+                    "target_pitches": melody["target_pitches"],
+                }
+            },
+        )
+        for melody in melodies_list
+    ]
+
+
+# Practice always stays on synth melodies.
 nodes_practice = [
     StaticNode(
         definition={
@@ -228,81 +315,187 @@ nodes_practice = [
 # experiment parts
 ########################################################################################################################
 
-def create_listen_trial(show_current_trial, time_estimate, target_pitches, melody_duration):
-    listen_page = ModularPage(
-        "listen_page",
-        JSSynth(
-            Markup(
-                f"""
-                <h3>Listen to the melody</h3>
-                <hr>
-                Press <b><b>Next</b></b> when you are ready to start singing the melody.<br>
-                <hr>
-                {show_current_trial}<br><br>
-                """
-                ),
-            [Note(pitch) for pitch in target_pitches],
-            timbre=TIMBRE,
-            default_duration=note_duration_tonejs,
-            default_silence=note_silence_tonejs,
-            ),
-            events={
-                "promptStart": Event(is_triggered_by="trialStart", delay=1.5),
-                "responseEnable": Event(is_triggered_by="promptEnd", delay=1),
-                "submitEnable": Event(is_triggered_by="promptEnd", delay=1),
-                },
-            progress_display=ProgressDisplay(
-                stages=[
-                    ProgressStage(1, "Wait a moment...", "orange"),
-                    ProgressStage(melody_duration, "Listen to the melody", "red"),
-                    ProgressStage(0.5, "Done!", "green", persistent=True),
-                    ],
-                    ),
-            time_estimate=time_estimate,
-            )
+def create_listen_trial(show_current_trial, time_estimate, target_pitches, melody_duration, melody_id: str):
+    html = Markup(
+        f"""
+        <h3>Listen to the melody</h3>
+        <hr>
+        Press <b><b>Next</b></b> when you are ready to start singing the melody.<br>
+        <hr>
+        {show_current_trial}<br><br>
+        """
+    )
 
-    return listen_page
-
-
-def create_singing_trial(show_current_trial, target_pitches, time_estimate, melody_duration, singing_duration):
-    singing_page = ModularPage(
-        "singing_page",
-            JSSynth(
-                Markup(
-                    f"""
-                <h3>Sing back the melody</h3>
-                <hr>
-                Sing each note clearly using the syllable '{SYLLABLE}' and leave silent gaps between notes.<br><br>
-                <hr>
-                {show_current_trial}<br><br>
-                """
-                ),
+    if AUDIO_PROMPT_MODE == "wavs":
+        wav_path = pick_sonic_logo_wav(melody_id)
+        if wav_path:
+            # `AudioPrompt` can take a local path or an asset; here we use a local path.
+            # Make sure the folder is available at runtime/deployment.
+            prompt = AudioPrompt(wav_path, html)
+        else:
+            prompt = JSSynth(
+                html,
                 [Note(pitch) for pitch in target_pitches],
                 timbre=TIMBRE,
                 default_duration=note_duration_tonejs,
                 default_silence=note_silence_tonejs,
-            ),
-            control=AudioRecordControl(
-                duration=singing_duration,
-                show_meter=True,
-                controls=False,
-                auto_advance=False,
-                bot_response_media="example_audio.wav",
-            ),
-            events={
-                "promptStart": Event(is_triggered_by="trialStart"),
-                "recordStart": Event(is_triggered_by="promptEnd", delay=0.25),
-            },
-            progress_display=ProgressDisplay(
-                stages=[
-                    ProgressStage(melody_duration, "Listen to the melody...", "orange"),
-                    ProgressStage(singing_duration, "Recording...SING THE MELODY!", "red"),
-                    ProgressStage(0.5, "Done!", "green", persistent=True),
-                ],
-            ),
-            time_estimate=time_estimate,
+            )
+    else:
+        prompt = JSSynth(
+            html,
+            [Note(pitch) for pitch in target_pitches],
+            timbre=TIMBRE,
+            default_duration=note_duration_tonejs,
+            default_silence=note_silence_tonejs,
         )
+
+    listen_page = ModularPage(
+        "listen_page",
+        prompt,
+        events={
+            "promptStart": Event(is_triggered_by="trialStart", delay=1.5),
+            "responseEnable": Event(is_triggered_by="promptEnd", delay=1),
+            "submitEnable": Event(is_triggered_by="promptEnd", delay=1),
+        },
+        progress_display=ProgressDisplay(
+            stages=[
+                ProgressStage(1, "Wait a moment...", "orange"),
+                ProgressStage(melody_duration, "Listen to the melody", "red"),
+                ProgressStage(0.5, "Done!", "green", persistent=True),
+            ],
+        ),
+        time_estimate=time_estimate,
+    )
+
+    return listen_page
+
+
+def create_listen_trial_wav(show_current_trial, time_estimate, url_audio: str, prompt_duration: float):
+    html = Markup(
+        f"""
+        <h3>Listen to the sound</h3>
+        <hr>
+        Press <b><b>Next</b></b> when you are ready to start singing it.<br>
+        <hr>
+        {show_current_trial}<br><br>
+        """
+    )
+
+    listen_page = ModularPage(
+        "listen_page",
+        AudioPrompt(url_audio, html),
+        events={
+            "promptStart": Event(is_triggered_by="trialStart", delay=0.5),
+            "responseEnable": Event(is_triggered_by="promptEnd", delay=0.5),
+            "submitEnable": Event(is_triggered_by="promptEnd", delay=0.5),
+        },
+        progress_display=ProgressDisplay(
+            stages=[
+                ProgressStage(0.5, "Wait a moment...", "orange"),
+                ProgressStage(prompt_duration, "Listen", "red"),
+                ProgressStage(0.5, "Done!", "green", persistent=True),
+            ],
+        ),
+        time_estimate=time_estimate,
+    )
+
+    return listen_page
+
+
+def create_singing_trial(show_current_trial, target_pitches, time_estimate, melody_duration, singing_duration, melody_id: str):
+    html = Markup(
+        f"""
+        <h3>Sing back the melody</h3>
+        <hr>
+        Sing each note clearly using the syllable '{SYLLABLE}' and leave silent gaps between notes.<br><br>
+        <hr>
+        {show_current_trial}<br><br>
+        """
+    )
+
+    if AUDIO_PROMPT_MODE == "wavs":
+        wav_path = pick_sonic_logo_wav(melody_id)
+        if wav_path:
+            prompt = AudioPrompt(wav_path, html)
+        else:
+            prompt = JSSynth(
+                html,
+                [Note(pitch) for pitch in target_pitches],
+                timbre=TIMBRE,
+                default_duration=note_duration_tonejs,
+                default_silence=note_silence_tonejs,
+            )
+    else:
+        prompt = JSSynth(
+            html,
+            [Note(pitch) for pitch in target_pitches],
+            timbre=TIMBRE,
+            default_duration=note_duration_tonejs,
+            default_silence=note_silence_tonejs,
+        )
+
+    singing_page = ModularPage(
+        "singing_page",
+        prompt,
+        control=AudioRecordControl(
+            duration=singing_duration,
+            show_meter=True,
+            controls=False,
+            auto_advance=False,
+            bot_response_media="example_audio.wav",
+        ),
+        events={
+            "promptStart": Event(is_triggered_by="trialStart"),
+            "recordStart": Event(is_triggered_by="promptEnd", delay=0.25),
+        },
+        progress_display=ProgressDisplay(
+            stages=[
+                ProgressStage(melody_duration, "Listen to the melody...", "orange"),
+                ProgressStage(singing_duration, "Recording...SING THE MELODY!", "red"),
+                ProgressStage(0.5, "Done!", "green", persistent=True),
+            ],
+        ),
+        time_estimate=time_estimate,
+    )
     
+    return singing_page
+
+
+def create_singing_trial_wav(show_current_trial, time_estimate, url_audio: str, prompt_duration: float, singing_duration: float):
+    html = Markup(
+        f"""
+        <h3>Sing back the sound</h3>
+        <hr>
+        Sing it back using the syllable '{SYLLABLE}'.<br><br>
+        <hr>
+        {show_current_trial}<br><br>
+        """
+    )
+
+    singing_page = ModularPage(
+        "singing_page",
+        AudioPrompt(url_audio, html),
+        control=AudioRecordControl(
+            duration=singing_duration,
+            show_meter=True,
+            controls=False,
+            auto_advance=False,
+            bot_response_media="example_audio.wav",
+        ),
+        events={
+            "promptStart": Event(is_triggered_by="trialStart"),
+            "recordStart": Event(is_triggered_by="promptEnd", delay=0.25),
+        },
+        progress_display=ProgressDisplay(
+            stages=[
+                ProgressStage(prompt_duration, "Listen...", "orange"),
+                ProgressStage(singing_duration, "Recording...SING!", "red"),
+                ProgressStage(0.5, "Done!", "green", persistent=True),
+            ],
+        ),
+        time_estimate=time_estimate,
+    )
+
     return singing_page
 
 
@@ -313,14 +506,18 @@ class SingingTrial(AudioRecordTrial, StaticTrial):
     accumulate_answers = True
 
     def show_trial(self, experiment, participant):
+        is_wav_trial = "url_audio" in self.definition
 
-        melody = self.definition
-
-        # convert to right register
-        if self.participant.var.register == "high":
-            target_pitches = melody['melody']['target_pitches']
+        if is_wav_trial:
+            wav_def = self.definition
         else:
-            target_pitches = [(i - 12) for i in melody['melody']['target_pitches']]
+            melody = self.definition
+
+            # convert to right register
+            if self.participant.var.register == "high":
+                target_pitches = melody['melody']['target_pitches']
+            else:
+                target_pitches = [(i - 12) for i in melody['melody']['target_pitches']]
 
         if self.trial_maker_id == "sing_practice":
             total_num_trials = TRIALS_PER_PARTICIPANT_PRACTICE
@@ -330,25 +527,71 @@ class SingingTrial(AudioRecordTrial, StaticTrial):
         current_trial = self.position + 1
         show_current_trial = f'<i>Trial number {current_trial} out of {total_num_trials} trials.</i>'
 
-        
-        listening_page = create_listen_trial(
-            show_current_trial,
-            TIME_ESTIMATE_LISTENING_TRIAL,
-            target_pitches,
-            melody_duration
-        )
+        if is_wav_trial:
+            prompt_duration = float(wav_def.get("duration_sec", melody_duration))
+            wav_singing_duration = prompt_duration + TIME_AFTER_SINGING
+            listening_page = create_listen_trial_wav(
+                show_current_trial,
+                TIME_ESTIMATE_LISTENING_TRIAL,
+                wav_def["url_audio"],
+                prompt_duration,
+            )
 
-        singing_page = create_singing_trial(
-            show_current_trial,
-            target_pitches,
-            TIME_ESTIMATE_SINGING_TRIAL,
-            melody_duration,
-            singing_duration
+            singing_page = create_singing_trial_wav(
+                show_current_trial,
+                TIME_ESTIMATE_SINGING_TRIAL,
+                wav_def["url_audio"],
+                prompt_duration,
+                wav_singing_duration,
+            )
+        else:
+            listening_page = create_listen_trial(
+                show_current_trial,
+                TIME_ESTIMATE_LISTENING_TRIAL,
+                target_pitches,
+                melody_duration,
+                melody["melody"]["melody_id"],
+            )
+
+            singing_page = create_singing_trial(
+                show_current_trial,
+                target_pitches,
+                TIME_ESTIMATE_SINGING_TRIAL,
+                melody_duration,
+                singing_duration,
+                melody["melody"]["melody_id"],
             )
         
         return [listening_page, singing_page]
 
     def analyze_recording(self, audio_file: str, output_plot: str):
+        is_wav_trial = "url_audio" in self.definition
+
+        if is_wav_trial:
+            # For WAV-based prompts we don't have a symbolic pitch target; just extract what was sung.
+            raw = sing.analyze(
+                audio_file,
+                singing_2intervals,
+                plot_options=sing.PlotOptions(
+                    save=SAVE_PLOT, path=output_plot, format="png"
+                ),
+            )
+            raw = [
+                {key: melodies.as_native_type(value) for key, value in x.items()} for x in raw
+            ]
+            sung_pitches = [x["median_f0"] for x in raw]
+
+            return {
+                "failed": False,
+                "reason": "NA (wav prompt)",
+                "register": getattr(self.participant.var, "register", None),
+                "stim_id": self.definition.get("stim_id"),
+                "url_audio": self.definition.get("url_audio"),
+                "sung_pitches": sung_pitches,
+                "num_sung_pitches": len(sung_pitches),
+                "raw": raw,
+                "save_plot": SAVE_PLOT,
+            }
 
         melody = self.definition
 
@@ -586,61 +829,21 @@ class Exp(psynet.experiment.Experiment):
             welcome(),
             practice_singing,
             main_singing,
-            SuccessfulEndPage()
         )
 
     else:
         timeline = Timeline(
-            MainConsent(),
-            AudiovisualConsent(),
-            OpenScienceConsent(),
+            GoldsmithsConsent(),
+            GoldsmithsAudioConsent(),
+            GoldsmithsOpenScienceConsent(),
+
             welcome(),
             requirements_mic(),
             mic_test(),
-            # recording_example(),
+
             singing_performance(),  # here we 1) screen bad participants and 2) select singing register (8 trials)
-            conditional(
-                label="assign_register",
-                condition=lambda experiment, participant: participant.var.predicted_register == "undefined",
-                logic_if_true=CodeBlock(
-                    lambda experiment, participant: participant.var.set(
-                        "register", random.choice(["low", "high"]))
-                ),
-                logic_if_false=CodeBlock(lambda experiment, participant: participant.var.set(
-                    "register",participant.var.predicted_register)
-                                        ),
-                fix_time_credit=False
-            ),
+
             practice_singing,
             main_singing,
             questionnaire(),
-            InfoPage(Markup(
-                f"""
-                <h3>Thank you for participating!</h3>
-                <hr>
-                You have successfully completed the experiment. 
-                <br><br>
-                <b><b>Completion code</b></b>: we are aware of a problem in Prolific where some participants do not get a completion code at the end of the study. 
-                If this is the case, please use the NOCODE option and we will manually send you the full payment. Thank you.
-                <hr>
-                """
-                ), time_estimate=2),
-            SuccessfulEndPage(),
         )
-
-    # uncomment for testing
-    # test_n_bots = 2
-    #
-    # def test_experiment(self):
-    #     # To run this test, manually change TRIALS_PER_PARTICIPANT to 8 and grid size to 4
-    #     super().test_experiment()
-    #
-    #     nodes = StaticNode.query.filter_by(trial_maker_id="rating_main_experiment").all()
-    #
-    #     for n in nodes:
-    #         n_trials = len(n.infos())
-    #         assert n_trials == 1
-
-    def __init__(self, session=None):
-        super().__init__(session)
-        self.initial_recruitment_size = INITIAL_RECRUITMENT_SIZE

@@ -1,72 +1,22 @@
 {
-    "device_compatibility": [
-        "desktop"
-    ],
-    "eligibility_requirements": [
-        {
-            "type": "select",
-            "attributes": [
-                {
-                    "label": "United Kingdom",
-                    "name": "United Kingdom",
-                    "value": true,
-                    "index": 0
-                }
-            ],
-            "query": {
-                "id": "54bef0fafdf99b15608c504e",
-                "title": "Current Country of Residence"
-            },
-            "_cls": "web.eligibility.models.SelectAnswerEligibilityRequirement"
-        },
-        {
-            "type": "select",
-            "attributes": [
-                {
-                    "label": "United Kingdom",
-                    "name": "United Kingdom",
-                    "value": true,
-                    "index": 0
-                }
-            ],
-            "query": {
-                "id": "54ac6ea9fdf99b2204feb896",
-                "title": "Nationality"
-            },
-            "_cls": "web.eligibility.models.SelectAnswerEligibilityRequirement"
-        },
-        {
-            "type": "select",
-            "attributes": [
-                {
-                    "label": "United Kingdom",
-                    "name": "United Kingdom",
-                    "value": true,
-                    "index": 0
-                }
-            ],
-            "query": {
-                "id": "54ac6ea9fdf99b2204feb895",
-                "title": "Country of Birth"
-            },
-            "_cls": "web.eligibility.models.SelectAnswerEligibilityRequirement"
-        },
-        {
-            "type": "select",
-            "attributes": [
-                {
-                    "label": "English",
-                    "name": "English",
-                    "value": true,
-                    "index": 18
-                }
-            ],
-            "query": {
-                "id": "54ac6ea9fdf99b2204feb899",
-                "title": "First Language"
-            },
-            "_cls": "web.eligibility.models.SelectAnswerEligibilityRequirement"
-        }
-    ],
-    "peripheral_requirements": []
+  "device_compatibility": ["desktop"],
+  "filters": [
+    {
+      "filter_id": "current-country-of-residence",
+      "selected_values": ["0"]
+    },
+    {
+      "filter_id": "nationality",
+      "selected_values": ["0"]
+    },
+    {
+      "filter_id": "country-of-birth",
+      "selected_values": ["0"]
+    },
+    {
+      "filter_id": "first-language",
+      "selected_values": ["18"]
+    }
+  ],
+  "peripheral_requirements": []
 }
